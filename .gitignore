@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.mypy_cache/
+archive/
+public/
+
+# macOS
+.DS_Store
+
+# OSRM binary routing data (large files)
+routing/
+
+# Cloudflare Wrangler
+.wrangler/
+
+# Generated outputs
+outputs/
+data/
+
+# Large data files
+*.pbf
+
+.env

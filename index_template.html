@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="format-detection" content="telephone=no">
+  <title>Payphone Route Visualiser</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: sans-serif; background: #1a1a2e; color: #eee; height: 100vh; display: flex; flex-direction: column; }
+
+    #header {
+      padding: 10px 16px;
+      background: #16213e;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      border-bottom: 1px solid #0f3460;
+      flex-shrink: 0;
+    }
+    #header h1 { font-size: 1rem; font-weight: 600; color: #e2e8f0; }
+    #stats { display: flex; gap: 16px; font-size: 0.8rem; color: #fff; }
+    #stats span strong { color: #fff; }
+
+    #map { flex: 1; }
+
+    .route-marker {
+      background: #2563eb;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+    .route-marker.start { background: #16a34a; }
+    .route-marker.end   { background: #dc2626; }
+
+    #loading {
+      position: absolute;
+      inset: 0;
+      background: rgba(26,26,46,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      font-size: 1.1rem;
+      color: #94a3b8;
+    }
+
+    #locate-btn {
+      position: absolute;
+      bottom: 24px;
+      right: 12px;
+      z-index: 1000;
+      background: #1e3a5f;
+      border: 1px solid #3b82f6;
+      color: #93c5fd;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+      touch-action: manipulation;
+    }
+    #locate-btn:active { background: #2563eb; }
+
+    #location-status {
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+    #location-status.active { color: #4ade80; }
+    #location-status.error  { color: #f87171; }
+
+    .user-location-dot {
+      width: 16px;
+      height: 16px;
+      background: #3b82f6;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(59,130,246,0.6);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(59,130,246,0.6); }
+      70%  { box-shadow: 0 0 0 10px rgba(59,130,246,0); }
+      100% { box-shadow: 0 0 0 0 rgba(59,130,246,0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <h1>Payphone</h1>
+    <div id="stats">
+      <span>Call: <strong>07 LOAD TALK</strong></span>
+      <span>Pin: <strong>56451</strong></span>
+      <span id="location-status"></span>
+    </div>
+  </div>
+
+  <div id="map"></div>
+  <div id="loading">Loading data…</div>
+  <button id="locate-btn">Center on me</button>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+  <!-- INLINE_DATA -->
+  <script>
+    const map = L.map('map', { preferCanvas: true });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      maxZoom: 19
+    }).addTo(map);
+
+    function init() {
+      const payphones = window.__PAYPHONES__;
+      const route = window.__ROUTE__;
+
+      const orderedIds = route.ordered_ids;
+      const pathGeoJson = route.path;
+
+      // Index payphones by ID for quick lookup
+      const byId = {};
+      for (const p of payphones) byId[p.id] = p;
+
+      const routeSet = new Set(orderedIds);
+      const allBounds = [];
+
+      // --- Layer: all payphones (canvas circles) ---
+      for (const p of payphones) {
+        if (routeSet.has(p.id)) continue; // drawn separately
+        const c = L.circleMarker([p.lat, p.lon], {
+          radius: 3,
+          color: '#64748b',
+          fillColor: '#64748b',
+          fillOpacity: 0.5,
+          weight: 0,
+        }).addTo(map);
+        c.bindTooltip(`Payphone #${p.id}`, { direction: 'top', offset: [0, -4] });
+        allBounds.push([p.lat, p.lon]);
+      }
+
+      // --- Layer: route path ---
+      const routeCoords = pathGeoJson.features.flatMap(f =>
+        f.geometry.coordinates.map(([lon, lat]) => [lat, lon])
+      );
+
+      const polyline = L.polyline(routeCoords, {
+        color: '#3b82f6',
+        weight: 3,
+        opacity: 0.85,
+      }).addTo(map);
+
+      // Arrowheads along the route
+      L.polylineDecorator(polyline, {
+        patterns: [{
+          offset: '50%',
+          repeat: 0,
+          symbol: L.Symbol.arrowHead({
+            pixelSize: 12,
+            headAngle: 40,
+            pathOptions: { color: '#93c5fd', fillOpacity: 1, weight: 0 },
+          }),
+        }, {
+          offset: '25%',
+          repeat: 0,
+          symbol: L.Symbol.arrowHead({
+            pixelSize: 12,
+            headAngle: 40,
+            pathOptions: { color: '#93c5fd', fillOpacity: 1, weight: 0 },
+          }),
+        }, {
+          offset: '75%',
+          repeat: 0,
+          symbol: L.Symbol.arrowHead({
+            pixelSize: 12,
+            headAngle: 40,
+            pathOptions: { color: '#93c5fd', fillOpacity: 1, weight: 0 },
+          }),
+        }],
+      }).addTo(map);
+
+      // --- Layer: numbered route markers ---
+      for (let i = 0; i < orderedIds.length; i++) {
+        const p = byId[orderedIds[i]];
+        const step = i + 1;
+        const cls = i === 0 ? 'route-marker start' : i === orderedIds.length - 1 ? 'route-marker end' : 'route-marker';
+        const icon = L.divIcon({
+          className: '',
+          html: `<div class="${cls}">${step}</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        });
+        L.marker([p.lat, p.lon], { icon })
+          .addTo(map)
+          .bindTooltip(`Stop ${step}: Payphone #${orderedIds[i]}`, { direction: 'top', offset: [0, -14] });
+        allBounds.push([p.lat, p.lon]);
+      }
+
+      map.fitBounds(L.latLngBounds(routeCoords), { padding: [32, 32] });
+      document.getElementById('loading').remove();
+    }
+
+    try {
+      init();
+    } catch (err) {
+      document.getElementById('loading').textContent = `Error: ${err.message}`;
+    }
+
+    // --- Live location tracking ---
+    const DEMO_LOCATION = { lat: -33.89760837652292, lon: 151.19479032452324 }; // set to null to use real GPS
+
+    const locationStatus = document.getElementById('location-status');
+    const locateBtn = document.getElementById('locate-btn');
+    let locationMarker = null;
+    let accuracyCircle = null;
+    let followUser = false;
+
+    const locationIcon = L.divIcon({
+      className: '',
+      html: '<div class="user-location-dot"></div>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
+
+    function onPosition(pos) {
+      const lat = DEMO_LOCATION ? DEMO_LOCATION.lat : pos.coords.latitude;
+      const lon = DEMO_LOCATION ? DEMO_LOCATION.lon : pos.coords.longitude;
+      const accuracy = DEMO_LOCATION ? 20 : pos.coords.accuracy;
+      const latlng = [lat, lon];
+
+      if (!locationMarker) {
+        locationMarker = L.marker(latlng, { icon: locationIcon, zIndexOffset: 1000 }).addTo(map);
+        accuracyCircle = L.circle(latlng, {
+          radius: accuracy,
+          color: '#3b82f6',
+          fillColor: '#3b82f6',
+          fillOpacity: 0.1,
+          weight: 1,
+        }).addTo(map);
+      } else {
+        locationMarker.setLatLng(latlng);
+        accuracyCircle.setLatLng(latlng);
+        accuracyCircle.setRadius(accuracy);
+      }
+
+      if (followUser) map.panTo(latlng);
+
+    }
+
+    function onError(err) {
+      const msg = err.code === 1 ? 'GPS: permission denied' : 'GPS: unavailable';
+      locationStatus.textContent = msg;
+      locationStatus.className = 'error';
+    }
+
+    if (DEMO_LOCATION) {
+      onPosition({});
+    } else if ('geolocation' in navigator) {
+      navigator.geolocation.watchPosition(onPosition, onError, {
+        enableHighAccuracy: true,
+        maximumAge: 5000,
+        timeout: 15000,
+      });
+    } else {
+      locationStatus.textContent = 'GPS: not supported';
+      locationStatus.className = 'error';
+    }
+
+    locateBtn.addEventListener('click', () => {
+      followUser = !followUser;
+      locateBtn.textContent = followUser ? 'Stop following' : 'Center on me';
+      locateBtn.style.borderColor = followUser ? '#4ade80' : '#3b82f6';
+      locateBtn.style.color = followUser ? '#4ade80' : '#93c5fd';
+      if (followUser && locationMarker) map.panTo(locationMarker.getLatLng());
+    });
+  </script>
+</body>
+</html>

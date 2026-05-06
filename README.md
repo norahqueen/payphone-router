@@ -1,0 +1,82 @@
+# Payphone Router
+
+A Python tool that generates an optimal running route for capturing payphones in [Payphone Tag](https://payphonetag.com). Given a distance budget, it solves an orienteering problem to find the route that visits as many payphones as possible.
+
+See the [blog post](TODO) for the full story.
+
+## How it works
+
+1. Fetches active payphones from the Payphone Tag API, optionally excluding phones already held by you and your cell-mates.
+2. Filters to phones within a configurable radius of your home coordinates.
+3. Builds a walking distance matrix across all candidate phones using a local [OSRM](https://project-osrm.org) routing engine.
+4. Solves the orienteering problem using the [OR-Tools CP-SAT](https://developers.google.com/optimization/reference/python/sat/python/cp_model) constraint programming solver to find the route maximising phones visited within the distance budget.
+5. Writes a self-contained HTML map page to `public/index.html` with the optimal route rendered.
+
+## Setup
+
+### Python dependencies
+
+```bash
+pip install osrm-bindings ortools geopy requests
+```
+
+### OSRM routing data
+
+OSRM needs preprocessed map data to calculate walking distances. You only need to do this once (or when you want updated map data).
+
+1. Download OSM data for your state/region from [Geofabrik](https://download.geofabrik.de). Eg for NSW, Australia: [new-south-wales-latest.osm.pbf](https://download.geofabrik.de/australia-oceania/australia/new-south-wales.html).
+
+2. Download the OSRM `profiles/` folder from the [OSRM GitHub](https://github.com/Project-OSRM/osrm-backend/tree/master/profiles). You need the whole folder, we'll use `foot.lua` for walking routes.
+
+3. Put the above 2 files in a "routing" directory. 
+
+4. Run the OSRM preprocessing steps:
+
+```bash
+# Extract the road network from the OSM data using the foot (walking) profile
+python -m osrm extract nsw_osm.pbf profiles/foot.lua
+
+# Build a Contraction Hierarchy — this makes routing queries very fast
+python -m osrm contract nsw_osm
+```
+
+
+## Configuration
+
+### Environment variables
+
+Create a `.env` file in the project root (or export the variables in your shell):
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` with your values:
+
+| Variable | Description | Example |
+|---|---|---|
+| `HOME_COORDINATES` | Your home coordinates as `lat,lon` — used as the centre for filtering and as the default run start | `-33.88261070811789, 151.20667753711774` |
+| `PLAYER_USERNAME` | Your in-game username — phones held by you and your cell-mates are excluded | `GoldenFalcon` |
+
+> `.env` is gitignored — never commit your coordinates or username.
+
+### Other constants
+
+The remaining constants are set directly in the `if __name__ == "__main__":` block in [payphone_router.py](payphone_router.py):
+
+| Constant | Description | Default |
+|---|---|---|
+| `PAYPHONE_FILTER_RADIUS_M` | Only consider payphones within this radius of home (metres) | `8000` |
+| `DISTANCE_BUDGET_METRES` | Maximum total run distance (metres) | `8000` |
+| `MAX_LEG_DISTANCE_METRES` | Maximum walking distance between any two consecutive phones (metres) | `1500` |
+| `START_PAYPHONE_ID_OVERRIDE` | Set to a phone ID to force a specific starting phone; `None` to use the nearest to home | `None` |
+
+## Running
+
+```bash
+python payphone_router.py
+```
+
+The script prints progress as it fetches phones, builds the distance matrix, and runs the solver. The output is written to `public/index.html` — open it in any browser to see the route on a map.
+
+For mobile access on a run, deploy `public/` to a static host. [Cloudflare Pages](https://pages.cloudflare.com) works well for this.
