@@ -2,7 +2,7 @@
 
 A Python tool that generates an optimal running route for capturing payphones in [Payphone Tag](https://payphonetag.com). Given a distance budget, it solves an orienteering problem to find the route that visits as many payphones as possible.
 
-See the [blog post](TODO) for the full story.
+See the [blog post](https://www.declanscott.dev/blog/payphone-tag-with-python) for the full story.
 
 ## How it works
 
