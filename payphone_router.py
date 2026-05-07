@@ -36,7 +36,9 @@ def _find_cell_member_ids(
 
 
 def fetch_payphones(
-    username_to_exclude: str | None, exclude_past_captures: bool = False
+    username_to_exclude: str | None,
+    exclude_past_captures: bool = False,
+    exclude_cell_mates: bool = True,
 ) -> list[Payphone]:
     response = requests.get("https://payphonetag.com/api/payphones")
     response.raise_for_status()
@@ -52,7 +54,7 @@ def fetch_payphones(
         player_id, cell_id = _find_player(data["players"], username_to_exclude)
         if player_id:
             player_holder_ids = {player_id}
-            if cell_id:
+            if cell_id and exclude_cell_mates:
                 cell_holder_ids = _find_cell_member_ids(
                     data["players"], cell_id, player_id
                 )
@@ -442,11 +444,16 @@ if __name__ == "__main__":
         else None
     )
     EXCLUDE_ALL_PAST_CAPTURES: bool = os.environ.get(
-        "EXCLUDE_ALL_PAST_CAPTURES", "true"
+        "EXCLUDE_ALL_PAST_CAPTURES", "false"
+    ).lower() not in ("false", "0", "no")
+    EXCLUDE_PHONES_HELD_BY_CELL_MATES: bool = os.environ.get(
+        "EXCLUDE_PHONES_HELD_BY_CELL_MATES", "true"
     ).lower() not in ("false", "0", "no")
 
     payphones = fetch_payphones(
-        PLAYER_USERNAME, exclude_past_captures=EXCLUDE_ALL_PAST_CAPTURES
+        PLAYER_USERNAME,
+        exclude_past_captures=EXCLUDE_ALL_PAST_CAPTURES,
+        exclude_cell_mates=EXCLUDE_PHONES_HELD_BY_CELL_MATES,
     )
     print(f"Fetched {len(payphones)} active payphones from the Payphone Tag server.")
     payphones = filter_payphones(

@@ -62,7 +62,7 @@ Then edit `.env` with your values:
 
 | Variable | Description |
 |---|---|
-| `HOME_COORDINATES` | Your home coordinates as `lat,lon` — used as the centre for filtering and as the default run start |
+| `HOME_COORDINATES` | Your home coordinates as `lat,lon` — used as the centre for filtering and to find the nearest payphone to start at |
 | `PLAYER_USERNAME` | Your in-game username — phones held by you and your cell-mates are excluded |
 | `OSRM_PATH` | Relative path to the OSRM data files (must be preprocessed — see OSRM setup above) |
 
@@ -75,7 +75,8 @@ Then edit `.env` with your values:
 | `MAX_LEG_DISTANCE_METRES` | Maximum walking distance between any two consecutive phones (metres) | `1500` |
 | `MAX_LATITUDE` | Exclude payphones above this latitude; leave empty to disable | _(disabled)_ |
 | `START_PAYPHONE_ID_OVERRIDE` | Set to a phone ID to force a specific starting phone; leave empty to use nearest to home | _(nearest to home)_ |
-| `EXCLUDE_ALL_PAST_CAPTURES` | `true` to exclude phones you've previously captured (not just currently held); `false` to include them | `true` |
+| `EXCLUDE_ALL_PAST_CAPTURES` | `true` to exclude phones you've previously captured (not just currently held); `false` to include them | `false` |
+| `EXCLUDE_PHONES_HELD_BY_CELL_MATES` | `true` to exclude phones currently held by your cell-mates; `false` to include them | `true` |
 
 > `.env` is gitignored — never commit your coordinates or username.
 
