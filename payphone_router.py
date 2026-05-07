@@ -18,42 +18,77 @@ class Payphone(TypedDict):
     lat: float
 
 
-def fetch_payphones(username_to_exclude: str | None) -> list[Payphone]:
-    PAYPHONE_API_URL = "https://payphonetag.com/api/payphones"
-    response = requests.get(PAYPHONE_API_URL)
+def _find_player(players: dict, username: str) -> tuple[str | None, str | None]:
+    for player_id, player_data in players.items():
+        if player_data.get("name") == username:
+            return player_id, player_data.get("cellId")
+    return None, None
+
+
+def _find_cell_member_ids(
+    players: dict, cell_id: str, exclude_player_id: str
+) -> set[str]:
+    return {
+        pid
+        for pid, pdata in players.items()
+        if pdata.get("cellId") == cell_id and pid != exclude_player_id
+    }
+
+
+def fetch_payphones(
+    username_to_exclude: str | None, exclude_past_captures: bool = False
+) -> list[Payphone]:
+    response = requests.get("https://payphonetag.com/api/payphones")
     response.raise_for_status()
     data = response.json()
-    ids_to_exclude: set[str] = set()
+
+    active_phones = [p for p in data["payphones"] if p[4] == "active"]
+
+    player_holder_ids: set[str] = set()
+    cell_holder_ids: set[str] = set()
+    past_capture_ids: set[int] = set()
+
     if username_to_exclude:
-        cell_id = None
-        for player_id, player_data in data["players"].items():
-            if player_data.get("name") == username_to_exclude:
-                ids_to_exclude.add(player_id)
-                cell_id = player_data.get("cellId")
-                print(
-                    f"Excluding payphones held by player '{username_to_exclude}' (id {player_id})"
+        player_id, cell_id = _find_player(data["players"], username_to_exclude)
+        if player_id:
+            player_holder_ids = {player_id}
+            if cell_id:
+                cell_holder_ids = _find_cell_member_ids(
+                    data["players"], cell_id, player_id
                 )
-                break
-        if cell_id is not None:
-            for player_id, player_data in data["players"].items():
-                if (
-                    player_data.get("cellId") == cell_id
-                    and player_id not in ids_to_exclude
-                ):
-                    ids_to_exclude.add(player_id)
-            print(
-                f"Also excluding payphones held by cell {cell_id} members ({len(ids_to_exclude) - 1} cell-mates)"
-            )
+            if exclude_past_captures:
+                past_capture_ids = fetch_past_captures(player_id)
+
     phones: list[Payphone] = []
-    for p in data["payphones"]:
-        if p[4] != "active":
-            # p[4] is status - we only want active payphones.
-            continue
-        if ids_to_exclude and str(p[3]) in ids_to_exclude:
-            # p[3] is holder_id - skip if held by the user or a cell-mate.
-            continue
-        phones.append({"id": p[0], "lon": p[1], "lat": p[2]})
+    player_excluded = cell_excluded = past_excluded = 0
+    for p in active_phones:
+        holder = str(p[3])
+        if holder in player_holder_ids:
+            player_excluded += 1
+        elif holder in cell_holder_ids:
+            cell_excluded += 1
+        elif p[0] in past_capture_ids:
+            past_excluded += 1
+        else:
+            phones.append({"id": p[0], "lon": p[1], "lat": p[2]})
+
+    if player_excluded:
+        print(
+            f"Excluding {player_excluded} phones held by player '{username_to_exclude}'."
+        )
+    if cell_excluded:
+        print(f"Excluding {cell_excluded} phones held by cell-mates.")
+    if past_excluded:
+        print(f"Excluding {past_excluded} previously captured phones.")
+
     return phones
+
+
+def fetch_past_captures(player_id: str) -> set[int]:
+    url = f"https://payphonetag.com/api/player/{player_id}/past-captures"
+    response = requests.get(url)
+    response.raise_for_status()
+    return set(response.json()["payphoneIds"])
 
 
 def get_starting_payphone(
@@ -261,7 +296,9 @@ def solve_cp_sat(
     solve_start = time.time()
     status = solver.solve(model)
     elapsed = time.time() - solve_start
-    print(f"Solver finished with status {solver.status_name(status)} in {elapsed:.1f} seconds")
+    print(
+        f"Solver finished with status {solver.status_name(status)} in {elapsed:.1f} seconds"
+    )
     if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         return None
 
@@ -382,8 +419,11 @@ if __name__ == "__main__":
     START_PAYPHONE_ID_OVERRIDE: int | None = (
         None  # Set to a payphone ID to force a specific start
     )
+    EXCLUDE_ALL_PAST_CAPTURES: bool = False  # Set this to True to exclude any you've previously captured, not just current held.
 
-    payphones = fetch_payphones(PLAYER_USERNAME)
+    payphones = fetch_payphones(
+        PLAYER_USERNAME, exclude_past_captures=EXCLUDE_ALL_PAST_CAPTURES
+    )
     print(f"Fetched {len(payphones)} active payphones from the Payphone Tag server.")
     payphones = filter_payphones(
         HOME_COORDINATES, payphones, PAYPHONE_FILTER_RADIUS_M, MAX_LATITUDE
