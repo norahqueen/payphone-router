@@ -373,7 +373,7 @@ if __name__ == "__main__":
     DISTANCE_BUDGET_METRES = 7000
     MAX_LEG_DISTANCE_METRES = 1500
     START_PAYPHONE_ID_OVERRIDE: int | None = (
-        2379  # Set to a payphone ID to force a specific start
+        None  # Set to a payphone ID to force a specific start
     )
 
     payphones = fetch_payphones(PLAYER_USERNAME)
