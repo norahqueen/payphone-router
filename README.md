@@ -38,7 +38,7 @@ OSRM needs preprocessed map data to calculate walking distances. You only need t
 
 ```bash
 # Extract the road network from the OSM data using the foot (walking) profile
-python -m osrm extract nsw_osm.pbf profiles/foot.lua
+python -m osrm extract nsw_osm.pbf -p profiles/foot.lua
 
 # Build a Contraction Hierarchy — this makes routing queries very fast
 python -m osrm contract nsw_osm
