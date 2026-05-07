@@ -87,7 +87,6 @@ def filter_payphones(
 
 
 def get_distance_matrix(payphones: list[Payphone]) -> list[list[float]]:
-    OSRM_PATH = "./routing/nsw_osm"
     engine = osrm.OSRM(OSRM_PATH)
     params = osrm.TableParameters(
         coordinates=[
@@ -312,7 +311,6 @@ def get_path_for_route(route_ordered_ids: list[int], payphones: list[Payphone]):
     features = []
     n_segments = len(route_ordered_ids) - 1
     coords = {p["id"]: (p["lon"], p["lat"]) for p in payphones}
-    OSRM_PATH = "./routing/nsw_osm"
     engine = osrm.OSRM(OSRM_PATH)
 
     for i in range(n_segments):
@@ -368,6 +366,7 @@ def write_html(
 if __name__ == "__main__":
     load_dotenv()
 
+    OSRM_PATH = os.environ.get("OSRM_PATH", "./routing/nsw_osm")
     lat, lon = os.environ["HOME_COORDINATES"].split(",")
     HOME_COORDINATES = (float(lat), float(lon))
     PAYPHONE_FILTER_RADIUS_M = 8000

@@ -62,6 +62,7 @@ Then edit `.env` with your values:
 |---|---|---|
 | `HOME_COORDINATES` | Your home coordinates as `lat,lon` — used as the centre for filtering and as the default run start | `-33.88261070811789, 151.20667753711774` |
 | `PLAYER_USERNAME` | Your in-game username — phones held by you and your cell-mates are excluded | `GoldenFalcon` |
+| `OSRM_PATH` | Path to the OSRM data files | `./routing/nsw_osm` |
 
 > `.env` is gitignored — never commit your coordinates or username.
 
