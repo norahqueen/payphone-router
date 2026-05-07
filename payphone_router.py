@@ -73,13 +73,15 @@ def get_starting_payphone(
 
 
 def filter_payphones(
-    centre: tuple[float, float], payphones: list[Payphone], radius_m: float
+    centre: tuple[float, float],
+    payphones: list[Payphone],
+    radius_m: float,
+    max_latitude: float | None = None,
 ) -> list[Payphone]:
     filtered = []
-    MAX_LATITUDE = -33.88926948611652  # I don't want to go into the city
     for p in payphones:
         dist = geodesic(centre, (p["lat"], p["lon"])).meters
-        if dist <= radius_m and p["lat"] <= MAX_LATITUDE:
+        if dist <= radius_m and (max_latitude is None or p["lat"] <= max_latitude):
             filtered.append(p)
     return filtered
 
@@ -371,14 +373,19 @@ if __name__ == "__main__":
     PAYPHONE_FILTER_RADIUS_M = 8000
     PLAYER_USERNAME = os.environ["PLAYER_USERNAME"]
     DISTANCE_BUDGET_METRES = 7000
-    MAX_LEG_DISTANCE_METRES = 1500
+    MAX_LEG_DISTANCE_METRES = 2000
+    MAX_LATITUDE: float | None = (
+        None  # you can set a latitude cap - I use it to avoid being sent into the city
+    )
     START_PAYPHONE_ID_OVERRIDE: int | None = (
         None  # Set to a payphone ID to force a specific start
     )
 
     payphones = fetch_payphones(PLAYER_USERNAME)
     print(f"Fetched {len(payphones)} active payphones from the Payphone Tag server.")
-    payphones = filter_payphones(HOME_COORDINATES, payphones, PAYPHONE_FILTER_RADIUS_M)
+    payphones = filter_payphones(
+        HOME_COORDINATES, payphones, PAYPHONE_FILTER_RADIUS_M, MAX_LATITUDE
+    )
     print(
         f"Filtered to {len(payphones)} payphones within {PAYPHONE_FILTER_RADIUS_M} metres of home."
     )

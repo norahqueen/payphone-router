@@ -17,7 +17,7 @@ See the [blog post](https://www.declanscott.dev/blog/payphone-tag-with-python) f
 ### Python dependencies
 
 ```bash
-pip install osrm-bindings ortools geopy requests
+pip install -r requirements.txt
 ```
 
 ### OSRM routing data
@@ -67,8 +67,9 @@ The remaining constants are set directly in the `if __name__ == "__main__":` blo
 | Constant | Description | Default |
 |---|---|---|
 | `PAYPHONE_FILTER_RADIUS_M` | Only consider payphones within this radius of home (metres) | `8000` |
-| `DISTANCE_BUDGET_METRES` | Maximum total run distance (metres) | `8000` |
-| `MAX_LEG_DISTANCE_METRES` | Maximum walking distance between any two consecutive phones (metres) | `1500` |
+| `DISTANCE_BUDGET_METRES` | Maximum total run distance (metres) | `7000` |
+| `MAX_LEG_DISTANCE_METRES` | Maximum walking distance between any two consecutive phones (metres) | `2000` |
+| `MAX_LATITUDE` | Exclude payphones above this latitude; `None` to disable | `None` |
 | `START_PAYPHONE_ID_OVERRIDE` | Set to a phone ID to force a specific starting phone; `None` to use the nearest to home | `None` |
 
 ## Running
